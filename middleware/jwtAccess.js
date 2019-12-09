@@ -7,6 +7,7 @@ var constants = require("../constants");
         let bearerHeader = req.headers["authorization"];
 
         if(bearerHeader && bearerHeader.split(" ")[1]){
+            // if token there will get user session from token else... else code
 
             const token = bearerHeader.split(" ")[1];
 
