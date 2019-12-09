@@ -2,6 +2,8 @@ var  fileItemModel =  require("../models/fileItem");
 
 var fileItemUtils = require("../utils/fileItem");
 
+var fs = require('fs');
+
 var path = require('path');
 
 class fileItem{
@@ -80,22 +82,18 @@ class fileItem{
 
     }
 
-    getData = async(query,options) =>{
+    getData = async(query) =>{
         try{
 
             let data ;
 
-            if(options && query){
-               
-                    data = await fileItemModel.find(query).skip(options["offset"]).limit(options["limit"]);
+            if(query){
 
-            }else if(query){
-
-                data = await fileItemModel.find(query);
+                data = await fileItemModel.find(query).select({ "original_name": 1, "_id": 1, 'size': 1, "is_public": 1, "user_id": 1, "file_name": 1});
 
             }else{
 
-                data = await fileItemModel.find();
+                data = await fileItemModel.find().select({ "original_name": 1, "_id": 1, 'size': 1, "is_public": 1, "user_id": 1, "file_name": 1});
             
             }
 
@@ -120,13 +118,28 @@ class fileItem{
 
         let data = {}
 
-        let delObj = await fileItemModel.remove({ _id: id, email: email }, function(err) {
+        let fileItem = await this.getData({_id:id,user_id:email});
+
+        let filePath = null;
+
+        if(fileItem["type"] == "success" && fileItem["data"] && fileItem["data"].length){
+
+            let item = fileItem["data"][0];
+
+            filePath = path.join(__dirname,'../uploads/'+ email + '/' + item.file_name);
+
+        }
+
+        let delObj = await fileItemModel.remove({ _id: id, user_id: email }, function(err,res) {
             
             if (!err) {
+                    fs.unlinkSync(filePath);
                     data.type = 'success';
+                    data.data = res
             }
             else {
                     data.type = 'fail';
+                    data.data = err
             }
 
         });
@@ -140,14 +153,27 @@ class fileItem{
 
         if(id){
 
-            let fileItem = await this.getData({_id:id});
+            let fileItem = await this.getData({_id:id,user_id:email});
 
-            let filePath = path.join(__dirname,'../uploads/'+ email + '/' + fileItem.file_name);
+            if(fileItem["type"] == "success" && fileItem["data"] && fileItem["data"].length){
 
-            return({
-                type: "success",
-                data: filePath
-            })
+                let item = fileItem["data"][0];
+
+                let filePath = path.join(__dirname,'../uploads/'+ email + '/' + item.file_name);
+
+                return({
+                    type: "success",
+                    data: filePath
+                })
+    
+            }else{
+
+                return({
+                    type: "fail",
+                    data: "can not fetch document"
+                })
+    
+            }
 
         }else{
 
@@ -158,8 +184,67 @@ class fileItem{
 
         }
 
-        
+    }
 
+    updatePrivacy = async(dataItems) =>{
+
+        let {id,is_public,email} = dataItems;
+
+        let fileItem = await this.getData({_id:id,user_id:email});
+
+        if(fileItem["type"] && (fileItem["type"] == "success")){
+
+            let file = fileItem["data"][0];
+
+            file["is_public"] = is_public ;
+
+            try{
+                let saveFile = await file.save();
+
+                return({
+                    type:"success",
+                    data: saveFile
+                })
+
+            }catch(err){
+                return({
+                    type: "fail",
+                    data: "something is wrong while saving"+ err
+                })
+
+            }
+
+        }else{
+
+            return({
+                type: "fail",
+                data: "No record found in the data base"
+            })
+
+        }
+    }
+
+    getAllPublicFilesByUserId = async() =>{
+
+        try{
+
+            let data = await fileItemModel
+            .find({"is_public" : true})
+            .select({ "original_name": 1, "_id": 1, 'size': 1, "is_public": 1, "user_id": 1, "file_name": 1});
+
+            return({
+                type: "success",
+                data: data
+            })
+
+        }catch(err){
+
+            return({
+                type: "fail",
+                data: "error while retriving the data"+ err
+            })
+
+        }
 
     }
 

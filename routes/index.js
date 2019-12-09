@@ -99,24 +99,37 @@ router.post('/validate',function(req,res){
 });
 
 
-router.get('/public',function(req,res){
+router.get('/files',function(req,res){
 
     let query = {};
 
-    let options = {}
+    query["user_id"] = req.user.email;
 
-    query["email"] = req.user.email;
+    fileItemController.getData(query).then((result,err)=>{
 
-    if(req.query && req.query.id){
-        query["_id"] =  req.query.id
-    }
+        if(err){
 
-    if(req.query && req.query.offset){
-        options["offset"] = Number(req.query.offset);
-        options["limit"] = 10;
-    }
+            res.send({
+                type: "fail",
+                data:"got an error"+ err
+            });
 
-    fileItemController.getData(query,options).then((result,err)=>{
+        }else{
+
+            res.send({
+                type: result["type"],
+                data:result["data"]
+            })
+
+        }
+    });
+
+    
+})
+
+router.get('/public',function(req,res){
+
+    fileItemController.getAllPublicFilesByUserId().then((result,err)=>{
 
         if(err){
 
@@ -196,42 +209,82 @@ router.post('/deleteitem',function(req,res){
 
     });
 
-    router.post('/download',function(req,res){
+});
 
-        let data = req.body;
-    
-        data["email"] = req.user.email;
-    
-        fileItemController.download(data).then((result,err)=>{
-    
-            if(err){
-    
+router.post('/file',function(req,res){
+
+    let data = req.body;
+
+    data["email"] = req.user.email;
+
+    fileItemController.download(data).then((result,err)=>{
+
+        if(err){
+
+            res.send({
+                type: "fail",
+                data:"got an error"+ err
+            });
+
+        }else{
+
+            if(result["fail"]){
+
                 res.send({
                     type: "fail",
-                    data:"got an error"+ err
+                    data:"got an error"+ result["data"]
                 });
-    
+
             }else{
-    
-                if(result["fail"]){
 
-                    res.send({
-                        type: "fail",
-                        data:"got an error"+ result["data"]
-                    });
+                res.sendFile(result["data"]);
 
-                }else{
-
-                    res.sendFile(result["data"]);
-
-                }
-    
             }
-    
-        });
 
-    })
+        }
 
-})
+    });
+
+});
+
+router.post('/updateprivacy',function(req,res){
+
+    let data = req.body;
+
+    data["email"] = req.user.email;
+
+    fileItemController.updatePrivacy(data).then((result,err)=>{
+
+        if(err){
+
+            res.send({
+                type: "fail",
+                data:"got an error"+ err
+            });
+
+        }else{
+
+            if(result["fail"]){
+
+                res.send({
+                    type: "fail",
+                    data:"got an error"+ result["data"]
+                });
+
+            }else{
+
+               res.send({
+                   type: "success",
+                   data: result["data"]
+               })
+               
+            }
+
+        }
+
+    });
+
+});
+
 
 module.exports = router;
